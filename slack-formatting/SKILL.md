@@ -5,7 +5,7 @@ description: Format content for Slack posts. Use when writing Slack messages, an
 
 # Slack Formatting
 
-Format content optimized for Slack's reading experience.
+Format content optimized for Slack's reading experience. Yeah buddy.
 
 ## Core Rules
 
