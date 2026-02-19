@@ -1,6 +1,6 @@
 ---
 name: slack-formatting
-description: Format content for Slack posts. Use when writing Slack messages, announcements, updates, or converting content from other formats (email, Notion, docs) to Slack-friendly formatting.
+description: Format content for Slack posts. Use when writing Slack messages, announcements, updates, or converting content from other formats (email, Notion, docs) to Slack-friendly formatting. Dis work?
 ---
 
 # Slack Formatting
