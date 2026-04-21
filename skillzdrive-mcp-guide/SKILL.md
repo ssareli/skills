@@ -63,6 +63,7 @@ On Claude Code and Claude Desktop, server-side prompts surface as slash commands
 | `/mcp__skillzdrive__my_drive` | — | Lists skills accessible via the current API key |
 | `/mcp__skillzdrive__check_updates` | — | Shows pending updates with security grades |
 | `/mcp__skillzdrive__help_create_skill` | — | Guided conversation to design a new skill |
+| `/mcp__skillzdrive__upload_skill` | `[file_path] [collection]` | Upload a local .zip/.skill via the ticket flow |
 
 ChatGPT Apps doesn't surface slash commands the same way — those clients use the welcome-card buttons and tool-attached templates instead.
 
