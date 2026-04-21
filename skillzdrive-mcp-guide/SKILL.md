@@ -1,7 +1,7 @@
 ---
 name: skillzdrive-mcp-guide
-description: How to use your SkillzDrive connection. Consult this before searching for skills, uploading skills, managing your drive, or any SkillzDrive interaction. Covers all 25 tools, workflows, and rules.
-tags: [skills, capabilities, skillzdrive, tools, agent-tools]
+description: How to use your SkillzDrive connection. Consult this before searching for skills, uploading skills, managing your drive, or any SkillzDrive interaction. Covers all 25 tools, workflows, upload flow, and rules.
+tags: [skills, capabilities, skillzdrive, tools, agent-tools, upload, add-skill, file-transfer]
 ---
 
 # SkillzDrive MCP Guide
@@ -151,7 +151,7 @@ ChatGPT Apps doesn't surface slash commands the same way — those clients use t
 
 | Tool | Required | Optional | Purpose |
 |------|----------|----------|---------|
-| `skills_createUploadTicket` | — | `filename`, `collectionName` | **Primary upload entry point.** Mints a short-lived (10 min), single-use upload token so `send-file.sh` doesn't need an embedded API key. Scoped callers auto-target their own collection. For ChatGPT Apps callers (no local-script egress), the response also carries `websiteFallbackUrl` — surface that instead. |
+| `skills_createUploadTicket` | — | `filename`, `collectionName` | **Primary upload entry point.** Mints a short-lived (10 min), single-use upload token AND returns the full `send-file.sh` script body inline (`scriptContent`). One tool call + one local bash invocation = complete upload. Scoped callers auto-target their own collection. For ChatGPT Apps callers (no local-script egress), the response also carries `websiteFallbackUrl` — surface that instead. |
 | `skills_getUploadUrl` | — | — | **Fallback** — returns the website upload URL preconfigured for this caller (source + scoped-key metadata baked in). Use when the local script can't run at all (browser-based agents, sandboxed clients). **Do not construct the URL yourself** — scoped keys need `key_id`/`key_name` params only this tool emits. |
 
 ## Workflows
@@ -193,23 +193,25 @@ Note: the `upload-to-skillzdrive` skill is `execution_tier: local` too, but it h
 
 ### Upload a Skill
 
-When the user wants to add their own skill to SkillzDrive:
+One MCP tool call + one local bash invocation. Everything the script needs comes back inline in the ticket response.
 
 ```
 1. skills_createUploadTicket({ collectionName?: "..." })
-   → { uploadToken, uploadUrl, targetType, targetCollection, websiteFallbackUrl? }
+   → { uploadToken, scriptFilename, scriptContent, targetCollection, websiteFallbackUrl? }
 2. If websiteFallbackUrl is present (ChatGPT Apps — code interpreter has no
    egress), share that URL with the user and stop. They'll upload via the
    website; the ticket stays unused and expires on its own.
-3. Otherwise fetch the script:
-   getScript("upload-to-skillzdrive", "send-file.sh")   → content + downloadUrl
-4. Run LOCALLY on the user's machine:
-   bash send-file.sh --file /path/to/my-skill.zip --upload-token <uploadToken>
+3. Otherwise write scriptContent to a temp file and run LOCALLY with the
+   token in an env var (keeps it out of shell history / process listings):
+   SKILLZDRIVE_UPLOAD_TOKEN=<uploadToken> bash <temp-path> --file /path/to/my-skill.zip
 ```
+
+Do NOT call `skills_getScript` or `skills_searchSkills` for the upload script — the full bash body is already inline in the ticket response. That\'s the whole point of the ticket flow.
 
 Key rules:
 
-- **No embedded credentials.** The script reads the ticket from `--upload-token`. Tickets are single-use and expire in 10 minutes. If an upload fails, call `skills_createUploadTicket` again for a fresh one — don't retry with a burned token.
+- **No embedded credentials.** Tickets are single-use and expire in 10 minutes. If an upload fails, call `skills_createUploadTicket` again for a fresh one — don\'t retry with a burned token.
+- **Prefer `SKILLZDRIVE_UPLOAD_TOKEN` env var over `--upload-token`** — same effect, but the token doesn\'t end up in shell history or process listings. The script accepts either.
 - **Collection targeting is baked into the ticket**: scoped callers implicitly target their own collection (uploaded skill appears in the current MCP session immediately). Unscoped callers get drive-only placement by default, or target a specific collection by name via `collectionName`.
 - **ZIP format**: the archive must contain a `SKILL.md` with valid frontmatter (`name`, `description`, `tags`).
 
