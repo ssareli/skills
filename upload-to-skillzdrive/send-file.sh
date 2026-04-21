@@ -1,20 +1,25 @@
 #!/bin/bash
 # send-file.sh — Upload a local .zip or .skill file to SkillzDrive.
-# Uploads and processes in one step — skill is created and added to your drive.
 #
-# Usage: bash send-file.sh --file <path> [--server-url <url>]
+# Unlike the legacy version, this script does NOT embed an API key. Instead
+# the caller mints a short-lived single-use upload token via the
+# `skills_createUploadTicket` MCP tool and passes it in via --upload-token.
+#
+# Usage:
+#   bash send-file.sh --file <path> --upload-token <ut_live_...> [--server-url <url>]
 
-# Upload-only API key (embedded per-user by SkillzDrive)
-UPLOAD_API_KEY="sk_live_RYzyHhv9WMQGhALV6ssfRVZ-Uk6432fL"
-
-# Default server URL (override with --server-url)
 SERVER_URL="https://www.skillzdrive.com"
+FILE_PATH=""
+UPLOAD_TOKEN=""
 
-# Parse arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
     --file)
       FILE_PATH="$2"
+      shift 2
+      ;;
+    --upload-token)
+      UPLOAD_TOKEN="$2"
       shift 2
       ;;
     --server-url)
@@ -23,14 +28,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown option: $1" >&2
-      echo "Usage: bash send-file.sh --file <path> [--server-url <url>]" >&2
+      echo "Usage: bash send-file.sh --file <path> --upload-token <token> [--server-url <url>]" >&2
       exit 1
       ;;
   esac
 done
 
 if [ -z "$FILE_PATH" ]; then
-  echo '{"error": "Missing --file argument. Usage: bash send-file.sh --file <path>"}' >&2
+  echo '{"error": "Missing --file. Usage: bash send-file.sh --file <path> --upload-token <token>"}' >&2
   exit 1
 fi
 
@@ -39,14 +44,17 @@ if [ ! -f "$FILE_PATH" ]; then
   exit 1
 fi
 
-# Upload and process in one step
+if [ -z "$UPLOAD_TOKEN" ]; then
+  echo '{"error": "Missing --upload-token. Call skills_createUploadTicket via MCP to mint one."}' >&2
+  exit 1
+fi
+
 RESPONSE=$(curl -s -w "\n%{http_code}" \
   -X POST \
-  -H "Authorization: Bearer $UPLOAD_API_KEY" \
+  -H "Authorization: Bearer $UPLOAD_TOKEN" \
   -F "file=@$FILE_PATH" \
   "${SERVER_URL}/api/uploads/process-skill")
 
-# Split response body and status code
 HTTP_CODE=$(echo "$RESPONSE" | tail -1)
 BODY=$(echo "$RESPONSE" | sed '$d')
 
@@ -55,5 +63,4 @@ if [ "$HTTP_CODE" -ne 200 ] && [ "$HTTP_CODE" -ne 201 ]; then
   exit 1
 fi
 
-# Output the response (contains skill info, scriptsUploaded, filesUploaded)
 echo "$BODY"
